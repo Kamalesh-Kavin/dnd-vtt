@@ -158,6 +158,9 @@ function setupSocketHandlers() {
     // Show tutorial on first game start
     if (!localStorage.getItem('dnd_tutorial_seen')) {
       setTimeout(() => showTutorial(), 600);
+    } else {
+      // If tutorial already seen, show a movement hint
+      setTimeout(() => showHint('first_explore', 'Click on the map to move your character. Drag to pan, scroll to zoom.', 6000), 800);
     }
   });
 
@@ -192,6 +195,11 @@ function setupSocketHandlers() {
     for (const evt of events) {
       const type = evt.type === 'trap' ? 'combat' : 'narrative';
       addChat('DM', evt.message, type);
+      if (evt.type === 'trap') {
+        showHint('trap_warning', 'Ouch! Traps deal damage when you step on them. Tread carefully!', 5000);
+      } else if (evt.type === 'chest') {
+        showHint('found_chest', 'Nice find! Chests give you loot and bonuses automatically.', 5000);
+      }
     }
     updateCharPanel();
     updateDescendButton();
@@ -233,6 +241,7 @@ function setupSocketHandlers() {
     renderTurnOrder();
     updateCombatActions();
     render();
+    showHint('first_combat', 'Combat! Use Attack or Cast Spell when it\'s your turn. End Turn to pass.', 6000);
   });
 
   s.on('attack_result', (data) => {
@@ -261,6 +270,7 @@ function setupSocketHandlers() {
     centerCameraOnPlayer();
     addChat('DM', data.narrative, 'narrative');
     render();
+    showHint('level_change', 'New dungeon level! Monsters get tougher, but loot gets better.', 5000);
   });
 
   // DICE
@@ -1201,7 +1211,11 @@ function updateDescendButton() {
   const dungeon = state.dungeon;
   if (char && dungeon && state.phase === 'exploring') {
     const tile = dungeon.grid[char.y]?.[char.x];
-    btn.classList.toggle('hidden', tile !== 4); // 4 = STAIRS
+    const onStairs = tile === 4;
+    btn.classList.toggle('hidden', !onStairs);
+    if (onStairs) {
+      showHint('found_stairs', 'You found stairs! Click "Descend Stairs" to go deeper into the dungeon.', 5000);
+    }
   } else {
     btn.classList.add('hidden');
   }
@@ -1238,6 +1252,7 @@ function updateCombatActions() {
     // Update the heading
     const heading = actions.querySelector('h4');
     if (heading) heading.textContent = 'Your Turn!';
+    showHint('your_turn', 'It\'s your turn! Pick a target, then Attack or Cast Spell.', 4000);
 
     // Populate target dropdown with alive monsters
     const targetDrop = document.getElementById('target-dropdown');
@@ -1499,4 +1514,39 @@ function buildTutorialDots() {
     dot.addEventListener('click', () => navigateTutorial(i));
     container.appendChild(dot);
   }
+}
+
+// ==========================================
+// CONTEXTUAL GAMEPLAY HINTS
+// ==========================================
+let hintTimer = null;
+
+function showHint(key, text, duration) {
+  // Each hint only shows once per browser (localStorage)
+  const storageKey = 'dnd_hint_' + key;
+  if (localStorage.getItem(storageKey)) return;
+  localStorage.setItem(storageKey, '1');
+
+  const el = document.getElementById('game-hint');
+  if (!el) return;
+
+  // Clear any existing hint timer
+  if (hintTimer) {
+    clearTimeout(hintTimer);
+    hintTimer = null;
+  }
+
+  el.textContent = text;
+  el.classList.remove('hidden');
+
+  // Trigger reflow so the transition plays
+  void el.offsetWidth;
+  el.classList.add('visible');
+
+  hintTimer = setTimeout(() => {
+    el.classList.remove('visible');
+    // Hide fully after fade-out transition
+    setTimeout(() => el.classList.add('hidden'), 400);
+    hintTimer = null;
+  }, duration || 5000);
 }
