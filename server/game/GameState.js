@@ -475,7 +475,7 @@ class GameState {
     const monsterNames = monsters.map(m => m.name).join(', ');
     this.addChatMessage('DM', `Combat begins! You face: ${monsterNames}!`, 'combat');
 
-    return {
+    const combatResult = {
       combat: true,
       turnOrder: result.turnOrder,
       currentTurn: result.currentTurn,
@@ -489,6 +489,19 @@ class GameState {
         maxHP: m.maxHP,
       })),
     };
+
+    // If the first turn is a monster, auto-execute all monster turns
+    if (result.currentTurn?.type === 'monster') {
+      combatResult.monsterActions = this._executeMonsterTurns();
+      // Update current turn after monster actions
+      if (this.combat) {
+        combatResult.currentTurn = this.combat.getCurrentTurn();
+        combatResult.turnOrder = this.combat.turnOrder;
+        combatResult.round = this.combat.round;
+      }
+    }
+
+    return combatResult;
   }
 
   // Player performs an attack action

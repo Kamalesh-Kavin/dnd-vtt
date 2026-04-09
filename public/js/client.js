@@ -37,9 +37,9 @@ const state = {
   // Canvas
   canvas: null,
   ctx: null,
-  tileSize: 16,
+  tileSize: 20,
   camera: { x: 0, y: 0 },
-  zoom: 1.0,
+  zoom: 1.5,
   isDragging: false,
   dragStart: { x: 0, y: 0 },
   cameraStart: { x: 0, y: 0 },
@@ -164,6 +164,15 @@ function setupSocketHandlers() {
     }
     if (data.socketId === state.mySocketId) {
       state.myCharacter = state.characters.find(c => c.socketId === state.mySocketId);
+      updateDescendButton();
+      // Continue auto-walk after a short delay
+      if (isAutoWalking && autoWalkQueue.length > 0) {
+        setTimeout(walkNextStep, 120);
+      } else {
+        isAutoWalking = false;
+        autoWalkQueue = [];
+        plannedPath = null;
+      }
     }
     render();
   });
@@ -176,6 +185,7 @@ function setupSocketHandlers() {
       addChat('DM', evt.message, type);
     }
     updateCharPanel();
+    updateDescendButton();
   });
 
   s.on('monsters_update', ({ monsters }) => {
@@ -185,15 +195,29 @@ function setupSocketHandlers() {
 
   // COMBAT
   s.on('combat_started', (data) => {
+    // Stop auto-walking when combat begins
+    isAutoWalking = false;
+    autoWalkQueue = [];
+    plannedPath = null;
+
     state.phase = 'combat';
     state.combat = {
       turnOrder: data.turnOrder,
-      currentTurn: data.turnOrder[0],
-      round: 1,
+      currentTurn: data.currentTurn || data.turnOrder[0],
+      round: data.round || 1,
     };
     state.monsters = data.monsters || state.monsters;
     state.characters = data.characters || state.characters;
     state.myCharacter = state.characters.find(c => c.socketId === state.mySocketId);
+
+    // Process any monster actions that happened before player's first turn
+    if (data.monsterActions) {
+      for (const action of data.monsterActions) {
+        if (action.result?.narrative) {
+          addChat('Combat', action.result.narrative, 'combat');
+        }
+      }
+    }
 
     updatePhaseIndicator();
     showCombatPanel(true);
@@ -249,6 +273,12 @@ function setupSocketHandlers() {
 
   // ERRORS
   s.on('error_msg', ({ message }) => {
+    // Stop auto-walking on movement errors
+    if (isAutoWalking) {
+      isAutoWalking = false;
+      autoWalkQueue = [];
+      plannedPath = null;
+    }
     addChat('System', message, 'system');
   });
 
@@ -358,6 +388,11 @@ function setupUIHandlers() {
     btn.addEventListener('click', () => {
       state.socket.emit('roll_dice', { notation: btn.dataset.dice });
     });
+  });
+
+  // DESCEND STAIRS
+  document.getElementById('descend-btn').addEventListener('click', () => {
+    state.socket.emit('descend');
   });
 
   // CHAT
@@ -510,21 +545,19 @@ function setupCanvas() {
   state.ctx = state.canvas.getContext('2d');
 
   // Resize
-  function resize() {
-    const parent = state.canvas.parentElement;
-    state.canvas.width = parent.clientWidth;
-    state.canvas.height = parent.clientHeight;
-    render();
+  window.addEventListener('resize', resizeCanvas);
+  // Initial resize only if game screen is visible
+  if (document.getElementById('game-screen').classList.contains('active')) {
+    resizeCanvas();
   }
-  window.addEventListener('resize', resize);
-  resize();
 
   // Mouse events for panning and clicking
   state.canvas.addEventListener('mousedown', onCanvasMouseDown);
   state.canvas.addEventListener('mousemove', onCanvasMouseMove);
   state.canvas.addEventListener('mouseup', onCanvasMouseUp);
-  state.canvas.addEventListener('wheel', onCanvasWheel);
+  state.canvas.addEventListener('wheel', onCanvasWheel, { passive: false });
   state.canvas.addEventListener('click', onCanvasClick);
+  state.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 
   // Touch support
   state.canvas.addEventListener('touchstart', onTouchStart, { passive: false });
@@ -532,21 +565,68 @@ function setupCanvas() {
   state.canvas.addEventListener('touchend', onTouchEnd);
 }
 
+let dragMoved = false;
+let hoverTile = null;       // { x, y } — tile under cursor
+let plannedPath = null;     // array of { x, y } — path preview
+let isAutoWalking = false;  // currently stepping through a path
+let autoWalkQueue = [];     // remaining steps to walk
+
 function onCanvasMouseDown(e) {
-  if (e.button === 1 || e.button === 2 || e.shiftKey) {
-    // Middle click or shift+click = pan
-    state.isDragging = true;
-    state.dragStart = { x: e.clientX, y: e.clientY };
-    state.cameraStart = { ...state.camera };
-    e.preventDefault();
-  }
+  // Right-click = pan, Left-click = start tracking for click vs drag
+  state.isDragging = true;
+  dragMoved = false;
+  state.dragStart = { x: e.clientX, y: e.clientY };
+  state.cameraStart = { ...state.camera };
+  if (e.button === 2) e.preventDefault();
 }
 
 function onCanvasMouseMove(e) {
+  // Update hover tile
+  if (state.dungeon && state.myCharacter) {
+    const rect = state.canvas.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+    const ts = state.tileSize * state.zoom;
+    const gx = Math.floor((mouseX - state.camera.x) / ts);
+    const gy = Math.floor((mouseY - state.camera.y) / ts);
+    const grid = state.dungeon.grid;
+    if (gy >= 0 && gy < grid.length && gx >= 0 && gx < grid[0].length) {
+      const newHover = { x: gx, y: gy };
+      if (!hoverTile || hoverTile.x !== gx || hoverTile.y !== gy) {
+        hoverTile = newHover;
+        // Compute path preview if exploring and tile is walkable
+        if (state.phase === 'exploring' && !isAutoWalking && state.dungeon.fog[gy][gx]) {
+          const tile = grid[gy][gx];
+          if (tile !== 0 && tile !== 2 && tile !== 8) {
+            plannedPath = findPath(
+              state.myCharacter.x, state.myCharacter.y,
+              gx, gy, grid, state.dungeon.fog
+            );
+          } else {
+            plannedPath = null;
+          }
+        }
+        if (!state.isDragging) render();
+      }
+    } else {
+      if (hoverTile) {
+        hoverTile = null;
+        plannedPath = null;
+        if (!state.isDragging) render();
+      }
+    }
+  }
+
   if (state.isDragging) {
-    state.camera.x = state.cameraStart.x + (e.clientX - state.dragStart.x);
-    state.camera.y = state.cameraStart.y + (e.clientY - state.dragStart.y);
-    render();
+    const dx = e.clientX - state.dragStart.x;
+    const dy = e.clientY - state.dragStart.y;
+    // Only start panning if moved more than 4px (avoids accidental drag on click)
+    if (Math.abs(dx) > 4 || Math.abs(dy) > 4) {
+      dragMoved = true;
+      state.camera.x = state.cameraStart.x + dx;
+      state.camera.y = state.cameraStart.y + dy;
+      render();
+    }
   }
 }
 
@@ -605,7 +685,7 @@ function onTouchEnd(e) {
 
 function onCanvasClick(e) {
   if (!state.dungeon || !state.myCharacter) return;
-  if (state.isDragging) return;
+  if (dragMoved) return; // was a drag, not a click
 
   const rect = state.canvas.getBoundingClientRect();
   const mouseX = e.clientX - rect.left;
@@ -616,9 +696,26 @@ function onCanvasClick(e) {
   const gridX = Math.floor((mouseX - state.camera.x) / ts);
   const gridY = Math.floor((mouseY - state.camera.y) / ts);
 
+  const grid = state.dungeon.grid;
+  if (gridY < 0 || gridY >= grid.length || gridX < 0 || gridX >= grid[0].length) return;
+
   if (state.phase === 'exploring') {
-    // Move to clicked tile (if adjacent)
-    state.socket.emit('move', { x: gridX, y: gridY });
+    // Check if adjacent (1 tile) — direct move
+    const dx = Math.abs(gridX - state.myCharacter.x);
+    const dy = Math.abs(gridY - state.myCharacter.y);
+    if (dx <= 1 && dy <= 1 && (dx + dy > 0)) {
+      state.socket.emit('move', { x: gridX, y: gridY });
+      return;
+    }
+
+    // Otherwise, use pathfinding and auto-walk
+    const path = findPath(
+      state.myCharacter.x, state.myCharacter.y,
+      gridX, gridY, grid, state.dungeon.fog
+    );
+    if (path && path.length > 0) {
+      startAutoWalk(path);
+    }
   } else if (state.phase === 'combat') {
     // In combat, clicking a monster could select it as target
     const clickedMonster = state.monsters.find(m =>
@@ -630,11 +727,140 @@ function onCanvasClick(e) {
   }
 }
 
+// ==========================================
+// A* PATHFINDING (client-side)
+// ==========================================
+function findPath(startX, startY, endX, endY, grid, fog) {
+  if (startX === endX && startY === endY) return [];
+
+  // Walkable tile check (same logic as server: not VOID, WALL, or PIT)
+  function isWalkable(x, y) {
+    if (y < 0 || y >= grid.length || x < 0 || x >= grid[0].length) return false;
+    if (!fog[y][x]) return false; // can't path through unexplored tiles
+    const t = grid[y][x];
+    return t !== 0 && t !== 2 && t !== 8; // not VOID, WALL, PIT
+  }
+
+  if (!isWalkable(endX, endY)) return null;
+
+  // A* with 8-directional movement
+  const key = (x, y) => `${x},${y}`;
+  const openSet = new Map();
+  const closed = new Set();
+  const cameFrom = new Map();
+  const gScore = new Map();
+
+  const heuristic = (x, y) => Math.max(Math.abs(x - endX), Math.abs(y - endY)); // Chebyshev
+
+  const startKey = key(startX, startY);
+  gScore.set(startKey, 0);
+  openSet.set(startKey, { x: startX, y: startY, f: heuristic(startX, startY) });
+
+  const dirs = [
+    { dx: 0, dy: -1 }, { dx: 0, dy: 1 }, { dx: -1, dy: 0 }, { dx: 1, dy: 0 },
+    { dx: -1, dy: -1 }, { dx: 1, dy: -1 }, { dx: -1, dy: 1 }, { dx: 1, dy: 1 },
+  ];
+
+  let iterations = 0;
+  const maxIterations = 2000; // safety limit
+
+  while (openSet.size > 0 && iterations < maxIterations) {
+    iterations++;
+
+    // Find node with lowest f score
+    let bestKey = null;
+    let bestF = Infinity;
+    for (const [k, node] of openSet) {
+      if (node.f < bestF) {
+        bestF = node.f;
+        bestKey = k;
+      }
+    }
+
+    const current = openSet.get(bestKey);
+    openSet.delete(bestKey);
+
+    if (current.x === endX && current.y === endY) {
+      // Reconstruct path (skip start position)
+      const path = [];
+      let ck = key(endX, endY);
+      while (cameFrom.has(ck)) {
+        const [px, py] = ck.split(',').map(Number);
+        path.unshift({ x: px, y: py });
+        ck = cameFrom.get(ck);
+      }
+      return path;
+    }
+
+    closed.add(bestKey);
+
+    for (const dir of dirs) {
+      const nx = current.x + dir.dx;
+      const ny = current.y + dir.dy;
+      const nk = key(nx, ny);
+
+      if (closed.has(nk) || !isWalkable(nx, ny)) continue;
+
+      // For diagonal moves, both adjacent cardinal tiles must be walkable
+      // (prevents cutting through wall corners)
+      if (dir.dx !== 0 && dir.dy !== 0) {
+        if (!isWalkable(current.x + dir.dx, current.y) ||
+            !isWalkable(current.x, current.y + dir.dy)) continue;
+      }
+
+      const tentativeG = gScore.get(bestKey) + 1;
+
+      if (tentativeG < (gScore.get(nk) ?? Infinity)) {
+        cameFrom.set(nk, bestKey);
+        gScore.set(nk, tentativeG);
+        const f = tentativeG + heuristic(nx, ny);
+        openSet.set(nk, { x: nx, y: ny, f });
+      }
+    }
+  }
+
+  return null; // no path found
+}
+
+// ==========================================
+// AUTO-WALK (step through path with delay)
+// ==========================================
+function startAutoWalk(path) {
+  if (isAutoWalking) {
+    // Cancel current walk and start new one
+    autoWalkQueue = [];
+  }
+  isAutoWalking = true;
+  autoWalkQueue = [...path];
+  plannedPath = [...path]; // keep showing the path
+  walkNextStep();
+}
+
+function walkNextStep() {
+  if (autoWalkQueue.length === 0 || state.phase !== 'exploring') {
+    isAutoWalking = false;
+    autoWalkQueue = [];
+    plannedPath = null;
+    render();
+    return;
+  }
+
+  const next = autoWalkQueue.shift();
+  state.socket.emit('move', { x: next.x, y: next.y });
+
+  // Update path preview (remove walked step)
+  plannedPath = autoWalkQueue.length > 0 ? [...autoWalkQueue] : null;
+  render();
+}
+
+// Listen for successful moves to trigger next auto-walk step
+// (hooked into existing player_moved handler below)
+
 function centerCameraOnPlayer() {
   if (!state.myCharacter || !state.canvas) return;
   const ts = state.tileSize * state.zoom;
-  state.camera.x = state.canvas.width / 2 - state.myCharacter.x * ts;
-  state.camera.y = state.canvas.height / 2 - state.myCharacter.y * ts;
+  state.camera.x = Math.round(state.canvas.width / 2 - (state.myCharacter.x + 0.5) * ts);
+  state.camera.y = Math.round(state.canvas.height / 2 - (state.myCharacter.y + 0.5) * ts);
 }
 
 // ==========================================
@@ -731,6 +957,48 @@ function render() {
     }
   }
 
+  // ---- PATH PREVIEW (dotted line to target) ----
+  if (plannedPath && plannedPath.length > 0 && state.phase === 'exploring') {
+    ctx.save();
+    // Draw path dots
+    for (let i = 0; i < plannedPath.length; i++) {
+      const step = plannedPath[i];
+      const spx = step.x * ts + camera.x + ts / 2;
+      const spy = step.y * ts + camera.y + ts / 2;
+      const isEnd = i === plannedPath.length - 1;
+
+      ctx.fillStyle = isEnd ? 'rgba(201, 168, 76, 0.6)' : 'rgba(201, 168, 76, 0.3)';
+      ctx.beginPath();
+      ctx.arc(spx, spy, isEnd ? ts * 0.15 : ts * 0.08, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Destination marker
+    const dest = plannedPath[plannedPath.length - 1];
+    const dpx = dest.x * ts + camera.x;
+    const dpy = dest.y * ts + camera.y;
+    ctx.strokeStyle = 'rgba(201, 168, 76, 0.5)';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(dpx + 2, dpy + 2, ts - 4, ts - 4);
+
+    // Step count label
+    ctx.font = `${Math.max(8, ts * 0.35)}px sans-serif`;
+    ctx.fillStyle = 'rgba(201, 168, 76, 0.8)';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(`${plannedPath.length}`, dpx + ts / 2, dpy + ts / 2);
+    ctx.restore();
+  }
+
+  // ---- HOVER HIGHLIGHT ----
+  if (hoverTile && !state.isDragging) {
+    const hpx = hoverTile.x * ts + camera.x;
+    const hpy = hoverTile.y * ts + camera.y;
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(hpx + 0.5, hpy + 0.5, ts - 1, ts - 1);
+  }
+
   // Draw monsters
   for (const monster of state.monsters) {
     if (monster.currentHP <= 0) continue;
@@ -777,10 +1045,23 @@ function render() {
 
     // Blue/green circle for player
     const isMe = char.socketId === state.mySocketId;
-    ctx.fillStyle = isMe ? 'rgba(41, 128, 185, 0.8)' : 'rgba(39, 174, 96, 0.7)';
-    ctx.beginPath();
-    ctx.arc(px + ts / 2, py + ts / 2, ts * 0.4, 0, Math.PI * 2);
-    ctx.fill();
+
+    // Subtle glow for own character
+    if (isMe) {
+      ctx.save();
+      ctx.shadowColor = 'rgba(52, 152, 219, 0.6)';
+      ctx.shadowBlur = ts * 0.3;
+      ctx.fillStyle = 'rgba(41, 128, 185, 0.8)';
+      ctx.beginPath();
+      ctx.arc(px + ts / 2, py + ts / 2, ts * 0.4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    } else {
+      ctx.fillStyle = 'rgba(39, 174, 96, 0.7)';
+      ctx.beginPath();
+      ctx.arc(px + ts / 2, py + ts / 2, ts * 0.4, 0, Math.PI * 2);
+      ctx.fill();
+    }
 
     // Character icon
     if (zoom >= 0.8) {
@@ -812,9 +1093,27 @@ function render() {
 // ==========================================
 // UI HELPERS
 // ==========================================
+function resizeCanvas() {
+  if (!state.canvas) return;
+  const parent = state.canvas.parentElement;
+  state.canvas.width = parent.clientWidth;
+  state.canvas.height = parent.clientHeight;
+  render();
+}
+
 function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
+
+  // When switching to game screen, the canvas needs to be resized
+  // because it was display:none and had 0x0 dimensions
+  if (id === 'game-screen') {
+    requestAnimationFrame(() => {
+      resizeCanvas();
+      centerCameraOnPlayer();
+      render();
+    });
+  }
 }
 
 function showSection(id) {
@@ -865,6 +1164,19 @@ function updatePhaseIndicator() {
   el.className = state.phase === 'combat' ? 'combat' : 'exploring';
 }
 
+function updateDescendButton() {
+  const btn = document.getElementById('descend-btn');
+  if (!btn) return;
+  const char = state.myCharacter;
+  const dungeon = state.dungeon;
+  if (char && dungeon && state.phase === 'exploring') {
+    const tile = dungeon.grid[char.y]?.[char.x];
+    btn.classList.toggle('hidden', tile !== 4); // 4 = STAIRS
+  } else {
+    btn.classList.add('hidden');
+  }
+}
+
 function showCombatPanel(show) {
   document.getElementById('combat-panel').classList.toggle('hidden', !show);
 }
@@ -890,9 +1202,13 @@ function updateCombatActions() {
   if (!state.combat) return;
   const isMyTurn = state.combat.currentTurn?.id === state.mySocketId;
   const actions = document.getElementById('combat-actions');
-  actions.classList.toggle('hidden', !isMyTurn);
 
   if (isMyTurn) {
+    actions.classList.remove('hidden');
+    // Update the heading
+    const heading = actions.querySelector('h4');
+    if (heading) heading.textContent = 'Your Turn!';
+
     // Populate target dropdown with alive monsters
     const targetDrop = document.getElementById('target-dropdown');
     targetDrop.innerHTML = '';
@@ -904,7 +1220,21 @@ function updateCombatActions() {
       targetDrop.appendChild(opt);
     }
     document.getElementById('target-select').classList.remove('hidden');
+  } else {
+    // Show whose turn it is
+    actions.classList.remove('hidden');
+    const heading = actions.querySelector('h4');
+    const currentName = state.combat.currentTurn?.name || '...';
+    if (heading) heading.textContent = `Waiting — ${currentName}'s turn`;
+    // Hide action buttons when not your turn
+    document.getElementById('action-buttons').style.display = isMyTurn ? 'flex' : 'none';
+    document.getElementById('target-select').classList.add('hidden');
+    document.getElementById('weapon-select').classList.add('hidden');
+    document.getElementById('spell-select').classList.add('hidden');
   }
+
+  // Show/hide action buttons
+  document.getElementById('action-buttons').style.display = isMyTurn ? 'flex' : 'none';
 }
 
 function showAttackUI() {
