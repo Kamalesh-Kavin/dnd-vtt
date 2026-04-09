@@ -113,6 +113,7 @@
           <button id="descend-btn" class="btn btn-sm btn-primary hidden">Descend Stairs</button>
           <button id="zoom-in-btn" class="btn btn-sm">+</button>
           <button id="zoom-out-btn" class="btn btn-sm">-</button>
+          <button id="help-btn" class="btn btn-sm" title="How to Play">?</button>
         </div>
       </div>
 
@@ -208,6 +209,163 @@
       <h1 id="gameover-title">Game Over</h1>
       <p id="gameover-message"></p>
       <button id="play-again-btn" class="btn btn-primary">Play Again</button>
+    </div>
+  </div>
+
+  <!-- ===================== -->
+  <!-- HOW TO PLAY TUTORIAL  -->
+  <!-- ===================== -->
+  <div id="tutorial-overlay" class="tutorial-overlay hidden">
+    <div class="tutorial-modal">
+      <button id="tutorial-close" class="tutorial-close">&times;</button>
+      <div class="tutorial-slides">
+
+        <!-- Slide 1: Welcome -->
+        <div class="tutorial-slide active" data-slide="0">
+          <div class="tutorial-icon">&#x1F3B2;</div>
+          <h2>Welcome to D&D Virtual Tabletop!</h2>
+          <p>You're about to explore a procedurally generated dungeon, fight monsters, find treasure, and descend deeper into the darkness.</p>
+          <p>This guide will teach you everything you need to know. No D&D experience required!</p>
+          <div class="tutorial-tip">This tutorial will only appear once. You can reopen it anytime with the <strong>?</strong> button on the game screen.</div>
+        </div>
+
+        <!-- Slide 2: Movement -->
+        <div class="tutorial-slide" data-slide="1">
+          <div class="tutorial-icon">&#x1F6B6;</div>
+          <h2>Moving Around</h2>
+          <div class="tutorial-grid">
+            <div class="tutorial-item">
+              <strong>Click a tile</strong>
+              <span>Click anywhere on the map to move there. Your character will automatically find the best path.</span>
+            </div>
+            <div class="tutorial-item">
+              <strong>Pan the map</strong>
+              <span>Click and drag to move the camera. Use the scroll wheel (or +/- buttons) to zoom.</span>
+            </div>
+            <div class="tutorial-item">
+              <strong>Path preview</strong>
+              <span>Hover over a tile to see the path your character will take (golden dots) and the number of steps.</span>
+            </div>
+            <div class="tutorial-item">
+              <strong>Fog of War</strong>
+              <span>Dark areas haven't been explored yet. Move closer to reveal them! Your vision has a limited range.</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Slide 3: Map Tiles -->
+        <div class="tutorial-slide" data-slide="2">
+          <div class="tutorial-icon">&#x1F5FA;</div>
+          <h2>Map Legend</h2>
+          <div class="tutorial-grid tutorial-legend">
+            <div class="tutorial-item">
+              <span class="tile-swatch" style="background:#3a3636"></span>
+              <strong>Floor</strong> <span>Safe to walk on</span>
+            </div>
+            <div class="tutorial-item">
+              <span class="tile-swatch" style="background:#1a1a28"></span>
+              <strong>Wall</strong> <span>Can't pass through</span>
+            </div>
+            <div class="tutorial-item">
+              <span class="tile-swatch" style="background:#6b4423"></span>
+              <strong>Door</strong> <span>Walk through to open — may lead to new rooms</span>
+            </div>
+            <div class="tutorial-item">
+              <span class="tile-swatch" style="background:#c9a84c"></span>
+              <strong>Stairs (&gt;)</strong> <span>Descend to the next dungeon level</span>
+            </div>
+            <div class="tutorial-item">
+              <span class="tile-swatch" style="background:#c9a84c"></span>
+              <strong>Chest ($)</strong> <span>Walk over to loot — gold, potions, or weapons!</span>
+            </div>
+            <div class="tutorial-item">
+              <span class="tile-swatch" style="background:#3a3636"></span>
+              <strong>Traps</strong> <span>Hidden! Look like floor tiles. High Wisdom helps you spot them.</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Slide 4: Combat -->
+        <div class="tutorial-slide" data-slide="3">
+          <div class="tutorial-icon">&#x2694;</div>
+          <h2>Combat</h2>
+          <div class="tutorial-grid">
+            <div class="tutorial-item">
+              <strong>How it starts</strong>
+              <span>Combat begins automatically when you get close to a monster. Everyone rolls initiative to determine turn order.</span>
+            </div>
+            <div class="tutorial-item">
+              <strong>Your turn</strong>
+              <span>When it's your turn, you'll see action buttons: <em>Attack</em>, <em>Cast Spell</em>, or <em>End Turn</em>. Choose a target from the dropdown.</span>
+            </div>
+            <div class="tutorial-item">
+              <strong>Attacks</strong>
+              <span>A d20 is rolled + your modifier. If it meets or beats the target's AC (Armor Class), you hit! Then damage is rolled.</span>
+            </div>
+            <div class="tutorial-item">
+              <strong>Monster turns</strong>
+              <span>Monsters act automatically. They'll attack the nearest player or move closer if they're out of range.</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Slide 5: Spells & Dice -->
+        <div class="tutorial-slide" data-slide="4">
+          <div class="tutorial-icon">&#x2728;</div>
+          <h2>Spells & Dice</h2>
+          <div class="tutorial-grid">
+            <div class="tutorial-item">
+              <strong>Spells</strong>
+              <span>Spellcasters (Wizard, Cleric, Bard, etc.) can cast spells. Cantrips are free; higher-level spells use spell slots that recharge when you descend stairs.</span>
+            </div>
+            <div class="tutorial-item">
+              <strong>Dice roller</strong>
+              <span>Use the dice buttons in the sidebar to roll any die. You can also type <strong>/roll 2d6+3</strong> in chat!</span>
+            </div>
+            <div class="tutorial-item">
+              <strong>Ability scores</strong>
+              <span>STR (melee), DEX (ranged/AC), CON (HP), INT (wizard spells), WIS (cleric spells/perception), CHA (bard spells)</span>
+            </div>
+            <div class="tutorial-item">
+              <strong>Healing</strong>
+              <span>Find Potions of Healing in chests, or have a Cleric cast healing spells. Your party rests when descending stairs.</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Slide 6: Tips -->
+        <div class="tutorial-slide" data-slide="5">
+          <div class="tutorial-icon">&#x1F4A1;</div>
+          <h2>Tips for Survival</h2>
+          <div class="tutorial-grid">
+            <div class="tutorial-item">
+              <strong>Explore carefully</strong>
+              <span>Move through rooms systematically. Traps are hidden, so characters with high Wisdom are valuable scouts.</span>
+            </div>
+            <div class="tutorial-item">
+              <strong>Watch your HP</strong>
+              <span>Keep an eye on your health bar. If you hit 0 HP, you start making death saves. Three failures and you're gone!</span>
+            </div>
+            <div class="tutorial-item">
+              <strong>Descend when ready</strong>
+              <span>Find the stairs (golden &gt; symbol) and click the "Descend" button. Your party will rest and heal slightly before the next floor.</span>
+            </div>
+            <div class="tutorial-item">
+              <strong>Read the Adventure Log</strong>
+              <span>The sidebar shows all narration and combat results. The AI Dungeon Master describes what's happening — pay attention for clues!</span>
+            </div>
+          </div>
+          <div class="tutorial-tip">Good luck, adventurer! May your rolls be high and your HP plentiful.</div>
+        </div>
+
+      </div>
+
+      <!-- Navigation -->
+      <div class="tutorial-nav">
+        <button id="tutorial-prev" class="btn btn-sm" disabled>Back</button>
+        <div class="tutorial-dots" id="tutorial-dots"></div>
+        <button id="tutorial-next" class="btn btn-sm btn-primary">Next</button>
+      </div>
     </div>
   </div>
 

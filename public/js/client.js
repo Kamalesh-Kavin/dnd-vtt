@@ -43,6 +43,10 @@ const state = {
   isDragging: false,
   dragStart: { x: 0, y: 0 },
   cameraStart: { x: 0, y: 0 },
+
+  // Tutorial
+  tutorialSlide: 0,
+  tutorialTotal: 6,
 };
 
 function generateSessionId() {
@@ -150,6 +154,11 @@ function setupSocketHandlers() {
     centerCameraOnPlayer();
     addChat('DM', data.narrative, 'narrative');
     render();
+
+    // Show tutorial on first game start
+    if (!localStorage.getItem('dnd_tutorial_seen')) {
+      setTimeout(() => showTutorial(), 600);
+    }
   });
 
   // MOVEMENT
@@ -414,6 +423,27 @@ function setupUIHandlers() {
   // PLAY AGAIN
   document.getElementById('play-again-btn').addEventListener('click', () => {
     state.socket.emit('reset_game');
+  });
+
+  // TUTORIAL / HELP
+  document.getElementById('help-btn').addEventListener('click', () => {
+    showTutorial();
+  });
+  document.getElementById('tutorial-close').addEventListener('click', () => {
+    hideTutorial();
+  });
+  document.getElementById('tutorial-prev').addEventListener('click', () => {
+    navigateTutorial(state.tutorialSlide - 1);
+  });
+  document.getElementById('tutorial-next').addEventListener('click', () => {
+    if (state.tutorialSlide >= state.tutorialTotal - 1) {
+      hideTutorial();
+    } else {
+      navigateTutorial(state.tutorialSlide + 1);
+    }
+  });
+  document.getElementById('tutorial-overlay').addEventListener('click', (e) => {
+    if (e.target.id === 'tutorial-overlay') hideTutorial();
   });
 }
 
@@ -1415,5 +1445,58 @@ function applySnapshot(snapshot) {
     for (const msg of snapshot.chatLog) {
       addChat(msg.sender, msg.message, msg.type);
     }
+  }
+}
+
+// ==========================================
+// TUTORIAL
+// ==========================================
+function showTutorial() {
+  state.tutorialSlide = 0;
+  const overlay = document.getElementById('tutorial-overlay');
+  overlay.classList.remove('hidden');
+  buildTutorialDots();
+  updateTutorialSlide();
+}
+
+function hideTutorial() {
+  document.getElementById('tutorial-overlay').classList.add('hidden');
+  localStorage.setItem('dnd_tutorial_seen', '1');
+}
+
+function navigateTutorial(index) {
+  if (index < 0 || index >= state.tutorialTotal) return;
+  state.tutorialSlide = index;
+  updateTutorialSlide();
+}
+
+function updateTutorialSlide() {
+  const slides = document.querySelectorAll('.tutorial-slide');
+  slides.forEach((slide, i) => {
+    slide.classList.toggle('active', i === state.tutorialSlide);
+  });
+
+  // Update dots
+  const dots = document.querySelectorAll('.tutorial-dot');
+  dots.forEach((dot, i) => {
+    dot.classList.toggle('active', i === state.tutorialSlide);
+  });
+
+  // Update nav buttons
+  const prevBtn = document.getElementById('tutorial-prev');
+  const nextBtn = document.getElementById('tutorial-next');
+  prevBtn.disabled = state.tutorialSlide === 0;
+  nextBtn.textContent = state.tutorialSlide >= state.tutorialTotal - 1 ? 'Got it!' : 'Next';
+}
+
+function buildTutorialDots() {
+  const container = document.getElementById('tutorial-dots');
+  container.innerHTML = '';
+  for (let i = 0; i < state.tutorialTotal; i++) {
+    const dot = document.createElement('span');
+    dot.classList.add('tutorial-dot');
+    if (i === 0) dot.classList.add('active');
+    dot.addEventListener('click', () => navigateTutorial(i));
+    container.appendChild(dot);
   }
 }
