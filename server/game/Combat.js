@@ -4,6 +4,9 @@
 const DiceRoller = require('./DiceRoller');
 const { abilityModifier, WEAPONS, SPELLS, PROFICIENCY_BONUS } = require('../data/rules');
 
+// Narration utility
+function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+
 class Combat {
   constructor() {
     this.active = false;
@@ -140,7 +143,12 @@ class Combat {
     // Critical fail always misses
     if (attackRoll.critFail) {
       this._log(`${attacker.name} attacks ${target.name} with ${weapon.name} — CRITICAL MISS! (${attackRoll.breakdown})`);
-      result.narrative = `${attacker.name} swings wildly with their ${weapon.name} and completely misses!`;
+      result.narrative = pick([
+        `${attacker.name} swings wildly with their ${weapon.name} and completely misses — stumbling forward in an embarrassing display!`,
+        `${attacker.name}'s ${weapon.name} whistles through empty air as they lose their footing. Critical miss!`,
+        `The ${weapon.name} slips in ${attacker.name}'s grip, the strike going hopelessly wide! A fumble!`,
+        `${attacker.name} overcommits to the swing and nearly drops their ${weapon.name}. Not their finest moment.`,
+      ]);
       return result;
     }
 
@@ -159,19 +167,41 @@ class Combat {
 
       if (attackRoll.critical) {
         this._log(`${attacker.name} CRITICALLY HITS ${target.name} with ${weapon.name}! ${damageRoll.total} ${weapon.type} damage! (${attackRoll.breakdown}, dmg: ${damageRoll.breakdown})`);
-        result.narrative = `${attacker.name} delivers a devastating blow with their ${weapon.name}! ${damageRoll.total} damage!`;
+        result.narrative = pick([
+          `CRITICAL HIT! ${attacker.name} finds a perfect opening and drives their ${weapon.name} home with devastating force — ${damageRoll.total} damage!`,
+          `${attacker.name}'s eyes lock onto a gap in ${target.name}'s defense. The ${weapon.name} strikes true with bone-crunching precision — ${damageRoll.total} damage! A critical blow!`,
+          `Time seems to slow as ${attacker.name} delivers a masterful strike with their ${weapon.name}. CRITICAL! ${damageRoll.total} damage tears through ${target.name}!`,
+          `The ${weapon.name} sings through the air and bites deep — a critical strike! ${attacker.name} deals a punishing ${damageRoll.total} damage to ${target.name}!`,
+        ]);
       } else {
         this._log(`${attacker.name} hits ${target.name} with ${weapon.name} for ${damageRoll.total} ${weapon.type} damage. (${attackRoll.breakdown}, dmg: ${damageRoll.breakdown})`);
-        result.narrative = `${attacker.name} strikes ${target.name} with their ${weapon.name} for ${damageRoll.total} damage.`;
+        result.narrative = pick([
+          `${attacker.name} strikes ${target.name} with their ${weapon.name}, dealing ${damageRoll.total} ${weapon.type} damage.`,
+          `${attacker.name}'s ${weapon.name} connects solidly with ${target.name} — ${damageRoll.total} damage!`,
+          `A clean hit! ${attacker.name} lands their ${weapon.name} against ${target.name} for ${damageRoll.total} damage.`,
+          `${attacker.name} presses the attack, catching ${target.name} with their ${weapon.name}. ${damageRoll.total} ${weapon.type} damage dealt!`,
+          `Steel meets flesh as ${attacker.name}'s ${weapon.name} finds its mark — ${damageRoll.total} damage to ${target.name}!`,
+        ]);
       }
 
       if (result.killed) {
         this._log(`${target.name} falls!`);
-        result.narrative += ` ${target.name} collapses to the ground!`;
+        result.narrative += ' ' + pick([
+          `${target.name} crumples to the ground, defeated!`,
+          `With a final shudder, ${target.name} collapses lifeless!`,
+          `${target.name} staggers... and falls. The creature moves no more.`,
+          `${target.name} lets out a dying cry and collapses in a heap!`,
+        ]);
       }
     } else {
       this._log(`${attacker.name} attacks ${target.name} with ${weapon.name} — miss! (${attackRoll.breakdown} vs AC ${target.ac})`);
-      result.narrative = `${attacker.name} swings at ${target.name} with their ${weapon.name}, but the attack glances off.`;
+      result.narrative = pick([
+        `${attacker.name} swings at ${target.name} with their ${weapon.name}, but the attack glances off harmlessly.`,
+        `${attacker.name}'s ${weapon.name} strikes ${target.name}'s armor but fails to penetrate. A miss!`,
+        `${target.name} sidesteps ${attacker.name}'s ${weapon.name} at the last moment. The blow goes wide!`,
+        `The ${weapon.name} clangs against ${target.name}'s defenses — no damage dealt.`,
+        `${attacker.name} lunges forward with their ${weapon.name}, but ${target.name} is too quick!`,
+      ]);
     }
 
     return result;
@@ -201,7 +231,12 @@ class Combat {
       result.targetHP = Math.min(target.maxHP, target.currentHP + healed);
       result.hit = true;
       this._log(`${caster.name} casts ${spell.name} on ${target.name}, healing ${healed} HP! (${healRoll.breakdown})`);
-      result.narrative = `${caster.name} channels divine energy, healing ${target.name} for ${healed} hit points!`;
+      result.narrative = pick([
+        `${caster.name} channels divine energy into ${target.name}, mending wounds with a warm golden light — ${healed} HP restored!`,
+        `Radiant light flows from ${caster.name}'s hands as they cast ${spell.name}. ${target.name}'s injuries begin to close — healed for ${healed} HP!`,
+        `"Be whole!" ${caster.name} intones, and ${spell.name} washes over ${target.name} like a wave of warmth. ${healed} hit points restored!`,
+        `${caster.name} places a glowing hand on ${target.name}. The magic of ${spell.name} knits flesh and mends bone — ${healed} HP healed!`,
+      ]);
       return result;
     }
 
@@ -218,7 +253,11 @@ class Combat {
 
         if (attackRoll.critFail) {
           this._log(`${caster.name} casts ${spell.name} at ${target.name} — miss! (${attackRoll.breakdown})`);
-          result.narrative = `${caster.name} hurls ${spell.name} but it goes wide!`;
+          result.narrative = pick([
+            `${caster.name} hurls ${spell.name} but it goes wide, fizzling against the far wall!`,
+            `Arcane energy crackles from ${caster.name}'s fingertips, but the ${spell.name} misses ${target.name} entirely!`,
+            `${caster.name}'s concentration falters — ${spell.name} spirals off harmlessly into the darkness!`,
+          ]);
           return result;
         }
 
@@ -231,14 +270,26 @@ class Combat {
           result.killed = newHP <= 0;
 
           this._log(`${caster.name} hits ${target.name} with ${spell.name} for ${dmgRoll.total} ${spell.type} damage!`);
-          result.narrative = `${caster.name} blasts ${target.name} with ${spell.name} for ${dmgRoll.total} ${spell.type} damage!`;
+          result.narrative = pick([
+            `${caster.name} blasts ${target.name} with ${spell.name}! ${spell.type === 'fire' ? 'Flames engulf' : spell.type === 'cold' ? 'Frost coats' : spell.type === 'radiant' ? 'Holy light sears' : 'Arcane energy strikes'} the target for ${dmgRoll.total} damage!`,
+            `A bolt of ${spell.type || 'magical'} energy streaks from ${caster.name}'s outstretched hand — ${spell.name} slams into ${target.name} for ${dmgRoll.total} damage!`,
+            `${caster.name}'s ${spell.name} finds its mark! ${target.name} recoils as ${dmgRoll.total} ${spell.type} damage courses through them!`,
+          ]);
 
           if (result.killed) {
-            result.narrative += ` ${target.name} is destroyed!`;
+            result.narrative += ' ' + pick([
+              `${target.name} is consumed by the spell's energy and destroyed!`,
+              `The magic overwhelms ${target.name} — they collapse, lifeless!`,
+              `${target.name} disintegrates under the force of the spell!`,
+            ]);
           }
         } else {
           this._log(`${caster.name} casts ${spell.name} at ${target.name} — miss! (${attackRoll.breakdown} vs AC ${target.ac})`);
-          result.narrative = `${caster.name}'s ${spell.name} misses ${target.name}!`;
+          result.narrative = pick([
+            `${caster.name}'s ${spell.name} streaks past ${target.name}, missing by inches!`,
+            `${target.name} ducks beneath ${caster.name}'s ${spell.name} — the spell strikes the wall behind with a crack!`,
+            `The ${spell.name} sizzles through the air but ${target.name} evades the magical assault!`,
+          ]);
         }
       } else {
         // Save-based spell (e.g., Sacred Flame, Burning Hands)
@@ -261,7 +312,11 @@ class Combat {
           const newHP = Math.max(0, target.currentHP - finalDmg);
           result.targetHP = newHP;
           this._log(`${target.name} saves against ${spell.name}! ${finalDmg > 0 ? `Takes ${finalDmg} damage (half).` : 'No damage.'}`);
-          result.narrative = `${target.name} dodges the worst of ${caster.name}'s ${spell.name}!`;
+          result.narrative = pick([
+            `${target.name} dodges the worst of ${caster.name}'s ${spell.name}!${finalDmg > 0 ? ` Still takes ${finalDmg} damage from the residual energy.` : ' No damage taken!'}`,
+            `${target.name} braces against the ${spell.name} and resists much of its power!${finalDmg > 0 ? ` ${finalDmg} damage (half).` : ''}`,
+            `Quick reflexes save ${target.name} from the full force of ${spell.name}!${finalDmg > 0 ? ` But ${finalDmg} damage still gets through.` : ' The spell washes over them harmlessly.'}`,
+          ]);
         } else {
           // Save fail: full damage
           result.hit = true;
@@ -270,10 +325,18 @@ class Combat {
           result.targetHP = newHP;
           result.killed = newHP <= 0;
           this._log(`${target.name} fails save against ${spell.name}! Takes ${dmgRoll.total} ${spell.type} damage!`);
-          result.narrative = `${caster.name}'s ${spell.name} engulfs ${target.name} for ${dmgRoll.total} ${spell.type} damage!`;
+          result.narrative = pick([
+            `${caster.name}'s ${spell.name} engulfs ${target.name}! Unable to dodge, they take the full ${dmgRoll.total} ${spell.type} damage!`,
+            `${target.name} fails to evade — ${spell.name} strikes with full force for ${dmgRoll.total} ${spell.type} damage!`,
+            `The ${spell.name} catches ${target.name} flat-footed! ${dmgRoll.total} ${spell.type} damage tears through their defenses!`,
+          ]);
 
           if (result.killed) {
-            result.narrative += ` ${target.name} is destroyed!`;
+            result.narrative += ' ' + pick([
+              `${target.name} is consumed by the spell and destroyed!`,
+              `The magic overwhelms ${target.name} — they fall, never to rise again!`,
+              `${target.name} crumbles under the spell's fury!`,
+            ]);
           }
         }
       }
@@ -354,7 +417,12 @@ class Combat {
 
     if (attackRoll.critFail) {
       this._log(`${monster.name} attacks ${target.name} with ${attack.name} — MISS!`);
-      result.narrative = `The ${monster.name} lunges at ${target.name} but stumbles!`;
+      result.narrative = pick([
+        `The ${monster.name} lunges at ${target.name} but stumbles, its ${attack.name} striking nothing but air!`,
+        `The ${monster.name}'s ${attack.name} goes wildly off-target — ${target.name} easily sidesteps the clumsy assault!`,
+        `A desperate swing from the ${monster.name}! The ${attack.name} misses ${target.name} by a mile. What a blunder!`,
+        `The ${monster.name} overextends with its ${attack.name}, leaving itself momentarily vulnerable!`,
+      ]);
       return result;
     }
 
@@ -367,14 +435,40 @@ class Combat {
       result.killed = newHP <= 0;
 
       this._log(`${monster.name} hits ${target.name} with ${attack.name} for ${dmgRoll.total} damage!`);
-      result.narrative = `The ${monster.name} strikes ${target.name} with its ${attack.name} for ${dmgRoll.total} damage!`;
+
+      if (attackRoll.critical) {
+        result.narrative = pick([
+          `CRITICAL! The ${monster.name} finds a gap in ${target.name}'s defense — its ${attack.name} strikes with terrible precision for ${dmgRoll.total} damage!`,
+          `The ${monster.name}'s ${attack.name} catches ${target.name} completely off guard — a devastating ${dmgRoll.total} damage!`,
+          `A ferocious critical hit! The ${monster.name}'s ${attack.name} tears into ${target.name} for ${dmgRoll.total} damage!`,
+        ]);
+      } else {
+        result.narrative = pick([
+          `The ${monster.name} strikes ${target.name} with its ${attack.name} for ${dmgRoll.total} damage!`,
+          `${target.name} takes a hit from the ${monster.name}'s ${attack.name} — ${dmgRoll.total} damage!`,
+          `The ${monster.name}'s ${attack.name} connects! ${target.name} grunts in pain as ${dmgRoll.total} damage lands.`,
+          `With savage fury, the ${monster.name} slashes at ${target.name} with its ${attack.name}. ${dmgRoll.total} damage!`,
+          `The ${monster.name} presses its attack — ${attack.name} bites into ${target.name} for ${dmgRoll.total} damage!`,
+        ]);
+      }
 
       if (newHP <= 0) {
-        result.narrative += ` ${target.name} falls unconscious!`;
+        result.narrative += ' ' + pick([
+          `${target.name} falls unconscious, bleeding on the cold stone floor!`,
+          `${target.name} crumples under the blow, darkness closing in!`,
+          `${target.name} collapses! The party watches in horror as their companion falls!`,
+          `With a cry of pain, ${target.name} drops to the ground, barely clinging to life!`,
+        ]);
       }
     } else {
       this._log(`${monster.name} misses ${target.name} with ${attack.name}. (${attackRoll.breakdown} vs AC ${target.ac})`);
-      result.narrative = `The ${monster.name} swings at ${target.name} but misses!`;
+      result.narrative = pick([
+        `The ${monster.name} swings at ${target.name} but misses!`,
+        `${target.name} deflects the ${monster.name}'s ${attack.name} at the last second!`,
+        `The ${monster.name}'s ${attack.name} glances off ${target.name}'s armor harmlessly!`,
+        `${target.name} ducks under the ${monster.name}'s ${attack.name} — not today!`,
+        `The ${monster.name} snaps at ${target.name} with its ${attack.name}, but the blow goes wide!`,
+      ]);
     }
 
     return result;

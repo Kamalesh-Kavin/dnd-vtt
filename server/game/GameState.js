@@ -6,6 +6,9 @@ const DiceRoller = require('./DiceRoller');
 const DungeonGenerator = require('./DungeonGenerator');
 const Combat = require('./Combat');
 
+// Narration utility — picks a random item from an array
+function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+
 // Game phases
 const PHASE = {
   LOBBY: 'lobby',           // Players joining and creating characters
@@ -344,17 +347,31 @@ class GameState {
         // Trap triggers!
         const trapDmg = DiceRoller.roll('1d6');
         char.currentHP = Math.max(0, char.currentHP - trapDmg.total);
+
+        const trapTriggerNarr = [
+          `A click echoes underfoot — ${char.name} triggers a hidden pressure plate! Poisoned darts shoot from the walls, dealing ${trapDmg.total} damage! (Perception: ${check.total})`,
+          `The floor gives way beneath ${char.name}'s feet! A concealed spike pit opens up, dealing ${trapDmg.total} damage before they scramble out! (Perception: ${check.total})`,
+          `${char.name} stumbles into a tripwire! A swinging blade arcs from the shadows, slashing for ${trapDmg.total} damage! (Perception: ${check.total})`,
+          `A faint hiss is the only warning before jets of flame erupt from the walls — ${char.name} takes ${trapDmg.total} fire damage! (Perception: ${check.total})`,
+          `${char.name} steps on a loose stone. With a grinding sound, a volley of rusty needles fires from a hidden slot — ${trapDmg.total} damage! (Perception: ${check.total})`,
+        ];
         events.push({
           type: 'trap',
-          message: `${char.name} triggers a trap! Takes ${trapDmg.total} damage! (Perception: ${check.total})`,
+          message: pick(trapTriggerNarr),
           damage: trapDmg.total,
         });
         // Remove trap (triggered)
         this.dungeon.grid[y][x] = TILE_TYPES.FLOOR;
       } else {
+        const trapNoticedNarr = [
+          `${char.name}'s keen eyes spot thin wires stretched across the floor — a trap! Carefully stepping over them, disaster is averted. (Perception: ${check.total})`,
+          `Something about these flagstones looks wrong. ${char.name} notices a hidden pressure plate and warns the party! (Perception: ${check.total})`,
+          `${char.name} holds up a hand — "Wait. Look there." A nearly invisible tripwire glints in the torchlight. The trap is disarmed. (Perception: ${check.total})`,
+          `A faint mechanical clicking reaches ${char.name}'s ears. Following the sound, they discover a concealed dart mechanism in the wall. Close call. (Perception: ${check.total})`,
+        ];
         events.push({
           type: 'trap_noticed',
-          message: `${char.name} notices a trap on the floor! (Perception: ${check.total})`,
+          message: pick(trapNoticedNarr),
         });
       }
     }
@@ -362,9 +379,16 @@ class GameState {
     if (tile === TILE_TYPES.CHEST) {
       // Loot! Generate random treasure
       const loot = this._generateLoot();
+      const chestNarr = [
+        `${char.name} pries open a weathered wooden chest. Inside, glinting in the torchlight: ${loot.description}!`,
+        `An iron-bound chest sits in the corner, its lock rusted through. ${char.name} lifts the lid to discover ${loot.description}!`,
+        `${char.name} discovers a chest hidden behind fallen rubble. The hinges creak in protest, but yield to reveal ${loot.description}!`,
+        `Dust cascades from an ancient chest as ${char.name} opens it. Amidst the cobwebs and moth-eaten cloth lies ${loot.description}!`,
+        `"Over here!" ${char.name} calls out, brushing aside debris to reveal a small coffer. Inside: ${loot.description}!`,
+      ];
       events.push({
         type: 'chest',
-        message: `${char.name} opens a chest and finds: ${loot.description}!`,
+        message: pick(chestNarr),
         loot,
       });
       // Remove chest (looted)
@@ -372,16 +396,29 @@ class GameState {
     }
 
     if (tile === TILE_TYPES.STAIRS) {
+      const stairsNarr = [
+        `${char.name} discovers a spiral staircase descending into darkness. The steps are worn smooth by countless feet — or perhaps claws. The way deeper beckons.`,
+        `A stone stairway plunges downward, its depths swallowed by shadow. Cool air rises from below, carrying the faint echo of... something. ${char.name} has found the way to the next level.`,
+        `Carved into the floor is a grand staircase, flanked by crumbling stone gargoyles. Whatever waits below, the only way out is through. ${char.name} peers into the abyss.`,
+        `${char.name} spots stairs descending further underground. Ancient torches in iron sconces line the walls, though they haven't burned in centuries. The path deeper awaits.`,
+      ];
       events.push({
         type: 'stairs',
-        message: `${char.name} finds stairs leading deeper into the dungeon!`,
+        message: pick(stairsNarr),
       });
     }
 
     if (tile === TILE_TYPES.DOOR) {
+      const doorNarr = [
+        `${char.name} pushes open a heavy oak door. Its iron hinges groan in protest, echoing through the chambers beyond.`,
+        `The door swings open at ${char.name}'s touch, revealing the passage ahead. Stale air rushes out, carrying the scent of dust and decay.`,
+        `${char.name} shoulders through a battered door, its surface scarred by claw marks. Whatever made them is long gone — hopefully.`,
+        `A reinforced door blocks the way. ${char.name} turns the handle and pushes — it yields, revealing unexplored territory beyond.`,
+        `With a creak that seems far too loud in the silence, ${char.name} opens the door. Torchlight spills into the darkness ahead.`,
+      ];
       events.push({
         type: 'door',
-        message: `${char.name} opens a door.`,
+        message: pick(doorNarr),
       });
     }
 
@@ -473,7 +510,14 @@ class GameState {
     const result = this.combat.startCombat(combatants);
 
     const monsterNames = monsters.map(m => m.name).join(', ');
-    this.addChatMessage('DM', `Combat begins! You face: ${monsterNames}!`, 'combat');
+    const combatStartNarr = pick([
+      `Steel is drawn and spells are readied — combat begins! You face: ${monsterNames}!`,
+      `The air crackles with tension as battle erupts! Enemies engaged: ${monsterNames}!`,
+      `"To arms!" Combat is joined! Standing against you: ${monsterNames}!`,
+      `Adrenaline surges as ${monsterNames} ${monsters.length === 1 ? 'attacks' : 'attack'}! Roll for initiative!`,
+      `The peace shatters! ${monsterNames} ${monsters.length === 1 ? 'emerges' : 'emerge'} ready to fight. Combat begins!`,
+    ]);
+    this.addChatMessage('DM', combatStartNarr, 'combat');
 
     const combatResult = {
       combat: true,
@@ -554,7 +598,14 @@ class GameState {
     } else if (result.combatResult === 'victory') {
       this.phase = PHASE.EXPLORING;
       this.combat = null;
-      this.addChatMessage('DM', 'Victory! The enemies are defeated. You may continue exploring.', 'narrative');
+      const victoryNarr = pick([
+        'Victory! The last enemy falls. Silence returns to the dungeon, broken only by your ragged breathing. The way forward is clear.',
+        'The battle is won! You stand victorious among the fallen foes. Take a moment to catch your breath — the dungeon still holds many secrets.',
+        'With the final blow struck, combat ends. The echoes of battle fade into the stone. You may continue your exploration.',
+        'The enemies are vanquished! The metallic scent of battle hangs in the air. Press onward, brave adventurers — greater challenges await.',
+        'Triumph! The creatures lie defeated at your feet. The dungeon seems to hold its breath, as if impressed by your prowess.',
+      ]);
+      this.addChatMessage('DM', victoryNarr, 'narrative');
     }
 
     return result;
@@ -696,7 +747,13 @@ class GameState {
       const alivePlayers = Object.values(this.characters).filter(c => c.currentHP > 0);
       if (alivePlayers.length === 0) {
         this.phase = PHASE.GAME_OVER;
-        this.addChatMessage('DM', 'The party has fallen... Game over.', 'narrative');
+        const defeatNarr = pick([
+          'The party has fallen... Darkness claims you, one by one. The dungeon will wait for its next visitors. Game over.',
+          'One by one, the adventurers fall. The dungeon claims another group of souls. Your tale ends here... Game over.',
+          'The last defender crumples to the ground. The monsters close in. Silence follows. Total party kill.',
+          'As the final adventurer falls, the torchlight gutters and dies. The dungeon swallows your story whole. Game over.',
+        ]);
+        this.addChatMessage('DM', defeatNarr, 'narrative');
         actions.push({ type: 'game_over', result: 'defeat' });
         return actions;
       }
@@ -761,14 +818,20 @@ class GameState {
       );
     }
 
-    const narrative = `The party descends to dungeon level ${this.dungeonLevel}. The air grows colder and the darkness deeper...`;
-    this.addChatMessage('DM', narrative, 'narrative');
+    const descendNarr = pick([
+      `The party descends to dungeon level ${this.dungeonLevel}. The air grows colder and the darkness deeper. Whatever awaits below, there is no turning back now.`,
+      `Level ${this.dungeonLevel}. The stairs spiral down into the unknown. The stonework here is rougher, more ancient. Your torches flicker in a breeze rising from below — something stirs in the depths.`,
+      `Down, ever downward. The party reaches level ${this.dungeonLevel}. The walls here are damp with condensation, and strange fungi cling to the crevices. The dungeon's heartbeat grows louder.`,
+      `The descent to level ${this.dungeonLevel} is treacherous — loose stones and slick steps. But you make it. The chambers ahead are darker, more foreboding. Steel yourselves, adventurers.`,
+      `As you descend to level ${this.dungeonLevel}, the temperature shifts abruptly. The air tastes of iron and old secrets. New dangers — and perhaps new treasures — lie ahead.`,
+    ]);
+    this.addChatMessage('DM', descendNarr, 'narrative');
 
     return {
       dungeonLevel: this.dungeonLevel,
       dungeon: this.getClientDungeon(),
       characters: this.getAllCharacters(),
-      narrative,
+      narrative: descendNarr,
     };
   }
 
@@ -847,13 +910,42 @@ class GameState {
   // =============================
 
   _generateEntryNarrative() {
-    const narratives = [
-      'You descend into the darkness of the dungeon. Torchlight flickers against ancient stone walls. The air is thick with dust and the scent of old magic...',
-      'The heavy iron door creaks open, revealing a labyrinth of forgotten chambers. Strange echoes bounce off the walls ahead...',
-      'Your footsteps echo as you enter the dungeon. Cobwebs hang from the ceiling and bones litter the floor. Something stirs in the darkness ahead...',
-      'The entrance to the dungeon yawns before you like the maw of a great beast. You steel your nerves and step inside...',
-    ];
-    return narratives[Math.floor(Math.random() * narratives.length)];
+    const level = this.dungeonLevel;
+    const partySize = Object.keys(this.characters).length;
+    const partyNames = Object.values(this.characters).map(c => c.name);
+
+    // Party description fragment
+    const partyDesc = partySize === 1
+      ? `${partyNames[0]} stands alone`
+      : partySize === 2
+        ? `${partyNames[0]} and ${partyNames[1]} exchange a glance`
+        : `the party of ${partySize} adventurers gathers`;
+
+    // Level-specific atmosphere
+    const atmospheres = {
+      1: [
+        `The ancient stone archway looms before you, its surface etched with runes long forgotten. ${partyDesc} at the threshold as a chill draft seeps from the darkness below. The air carries the faint scent of damp earth and old iron. Somewhere deep within, water drips in a slow, steady rhythm — like a heartbeat.`,
+        `Torchlight dances across moss-covered walls as you descend the worn steps into the dungeon's maw. ${partyDesc} as shadows stretch and twist around you. The silence is thick, broken only by the skittering of unseen creatures retreating from the light. This place has been waiting — perhaps for you.`,
+        `A cold wind howls through the entrance, carrying whispers that almost form words. ${partyDesc} before the gaping darkness below. The stonework here is ancient — older than the kingdom above. Cobwebs thick as curtains part before you, and the bones of less fortunate explorers crunch underfoot. Adventure awaits... if you survive.`,
+        `The rusted portcullis groans as it rises, revealing a corridor that descends into shadow. ${partyDesc}, torches held high against the encroaching dark. The walls are slick with moisture, and strange fungi glow faintly blue in the crevices. Whatever treasures lie ahead, they are guarded by the dungeon's eternal patience.`,
+      ],
+      2: [
+        `The stairs spiral deeper into the earth. The temperature drops noticeably, and your breath fogs in the guttering torchlight. Level two. The walls here are rougher, carved not by masons but by something with claws. Dark stains on the stone tell stories you'd rather not read.`,
+        `You descend further into the labyrinth. The worked stone of the upper level gives way to natural cavern walls, slick with condensation. Strange phosphorescent lichens cast an eerie green pallor over everything. The dungeon is alive — and it knows you're here.`,
+        `Deeper now. The air grows thick and warm, carrying the metallic tang of old blood. The corridors on this level are narrower, more winding, as if designed to confuse and disorient. From somewhere ahead comes a low, rhythmic sound — breathing? Machinery? You press on.`,
+      ],
+      deep: [
+        `Level ${level}. Few have ventured this deep and returned to tell the tale. The very stone seems to pulse with dark energy, and shadows move of their own accord. The temperature swings between freezing cold and oppressive heat with no apparent cause. Something ancient rules these depths.`,
+        `The descent to level ${level} feels endless. When you finally reach solid ground, the silence is absolute — the kind of silence that presses against your eardrums. Then, slowly, you hear it: a deep thrumming, like the heartbeat of the earth itself. The dungeon's true masters dwell here.`,
+        `Level ${level}. The darkness here is different — heavier, almost tangible. Your torches seem to burn less brightly, as if the shadows are drinking the light. The walls are covered in ancient carvings depicting scenes of terrible power. Whatever awaits ahead, it has been expecting company.`,
+      ],
+    };
+
+    const pool = level === 1 ? atmospheres[1]
+      : level === 2 ? atmospheres[2]
+      : atmospheres.deep;
+
+    return pick(pool);
   }
 
   // =============================

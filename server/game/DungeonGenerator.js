@@ -363,30 +363,71 @@ class DungeonGenerator {
 
   // Generate a room description for narrative
   static describeRoom(room, monsters, hasChest, hasTrap) {
-    const sizes = ['cramped', 'small', 'modest', 'spacious', 'vast'];
-    const sizeIdx = Math.min(Math.floor((room.w * room.h) / 20), sizes.length - 1);
-    const sizeWord = sizes[sizeIdx];
+    const _pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+    const area = room.w * room.h;
 
-    const features = ['stone-walled', 'dimly lit', 'musty', 'damp', 'torch-lit', 'cobweb-covered', 'ancient'];
-    const feature = features[Math.floor(Math.random() * features.length)];
+    // Size descriptions based on room area
+    const sizeDescs = area < 20
+      ? ['a cramped chamber barely large enough to swing a sword in', 'a tight alcove with low ceilings', 'a narrow cell, its walls pressing close']
+      : area < 40
+        ? ['a modest room with rough-hewn walls', 'a stone chamber of unremarkable size', 'a square room with a cracked flagstone floor']
+        : area < 70
+          ? ['a spacious hall with vaulted ceilings', 'a grand chamber echoing with your footsteps', 'a wide room where shadows pool in distant corners']
+          : ['a vast cavern that swallows the torchlight', 'an enormous hall — perhaps once a throne room or barracks', 'a cathedral-like chamber, its ceiling lost in darkness above'];
 
-    let desc = `You enter a ${sizeWord}, ${feature} chamber.`;
+    // Atmospheric details
+    const atmospheres = [
+      'Condensation trickles down the walls, pooling on the uneven floor.',
+      'Faded murals on the walls depict scenes of a forgotten civilization.',
+      'Broken furniture and shattered pottery litter the ground.',
+      'The air is thick with the smell of mildew and ancient dust.',
+      'Strange scratch marks line the walls at various heights.',
+      'A collapsed pillar lies across the floor, crumbled to rubble centuries ago.',
+      'Torch sconces line the walls, their brackets rusted and empty.',
+      'A cold draft sweeps through from some unseen crack in the stonework.',
+      'The floor is covered in a fine layer of grey ash.',
+      'Chains dangle from the ceiling, swaying gently in a breeze you cannot feel.',
+      'The walls are covered in a strange, luminescent moss that pulses faintly.',
+      'Bones — animal? human? — are scattered in the corners.',
+      'Water stains streak the walls from ceiling to floor, like frozen tears.',
+      'A foul-smelling puddle of stagnant water occupies one corner.',
+    ];
 
+    let desc = `You enter ${_pick(sizeDescs)}. ${_pick(atmospheres)}`;
+
+    // Monster presence
     if (monsters.length > 0) {
       if (monsters.length === 1) {
-        desc += ` A ${monsters[0].name} lurks in the shadows!`;
+        const monsterIntros = [
+          ` A ${monsters[0].name} turns toward you, ${_pick(['its eyes gleaming with malice', 'snarling in fury', 'teeth bared and ready to strike', 'crouching low, prepared to pounce'])}!`,
+          ` From the shadows, a ${monsters[0].name} emerges — it was waiting for you.`,
+          ` A ${monsters[0].name} blocks your path, ${_pick(['claws scraping against the stone', 'a guttural growl building in its throat', 'hackles raised and muscles tensed'])}!`,
+        ];
+        desc += _pick(monsterIntros);
       } else {
-        desc += ` ${monsters.length} creatures stir in the darkness!`;
+        const groupIntros = [
+          ` Movement in the shadows — ${monsters.length} creatures stir to life as they sense your presence!`,
+          ` You're not alone. ${monsters.length} hostile forms emerge from the darkness, cutting off retreat!`,
+          ` Eyes glint in the darkness — ${monsters.length} enemies were lying in wait!`,
+          ` The room erupts into motion as ${monsters.length} creatures rise from their positions, alerted to intruders!`,
+        ];
+        desc += _pick(groupIntros);
       }
     }
 
     if (hasChest) {
-      desc += ' A weathered chest sits against the far wall.';
+      const chestDescs = [
+        ' A battered chest sits against the far wall, its iron bands green with verdigris.',
+        ' In the corner, partially hidden by debris, you spot a wooden chest.',
+        ' A stone coffer rests on a raised platform — could it hold treasure?',
+        ' Your torchlight catches the glint of metal fittings on a chest half-buried in rubble.',
+      ];
+      desc += _pick(chestDescs);
     }
 
     if (hasTrap) {
       // DM info only — players shouldn't see this without Perception check
-      desc += ' [DM: A trap is hidden in this room.]';
+      desc += ' [DM: A trap is concealed in this room.]';
     }
 
     return desc;
