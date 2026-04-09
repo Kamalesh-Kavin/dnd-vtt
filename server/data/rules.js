@@ -1,4 +1,4 @@
-// D&D 5e SRD — Races, Classes, Abilities, Spells, Monsters
+// 5e SRD — Races, Classes, Abilities, Spells, Monsters
 // Simplified but faithful to core mechanics
 
 // =====================
@@ -283,7 +283,7 @@ const SPELLS = {
   // Cantrips
   fire_bolt:      { name: 'Fire Bolt',      level: 0, school: 'evocation',    damage: '1d10', type: 'fire',    range: 120, classes: ['wizard'], description: 'Hurl a mote of fire at a creature. Ranged spell attack.' },
   sacred_flame:   { name: 'Sacred Flame',   level: 0, school: 'evocation',    damage: '1d8',  type: 'radiant', range: 60,  classes: ['cleric'], description: 'Flame descends on a creature. DEX save or take damage.' },
-  eldritch_blast: { name: 'Eldritch Blast', level: 0, school: 'evocation',    damage: '1d10', type: 'force',   range: 120, classes: ['bard'], description: 'A beam of crackling energy. Ranged spell attack.' },
+  chill_touch:    { name: 'Chill Touch',    level: 0, school: 'necromancy',  damage: '1d8',  type: 'necrotic', range: 120, classes: ['bard'], description: 'A ghostly skeletal hand strikes a creature. Ranged spell attack.' },
   light:          { name: 'Light',          level: 0, school: 'evocation',    damage: null,   type: null,      range: 0,   classes: ['wizard', 'cleric', 'bard'], description: 'Touch an object — it sheds bright light in 20ft radius.' },
   mending:        { name: 'Mending',        level: 0, school: 'transmutation', damage: null,  type: null,      range: 0,   classes: ['wizard', 'cleric', 'bard'], description: 'Repair a single break or tear in an object.' },
   minor_illusion: { name: 'Minor Illusion', level: 0, school: 'illusion',     damage: null,   type: null,      range: 30,  classes: ['wizard', 'bard'], description: 'Create a sound or an image of an object within range.' },
@@ -411,7 +411,7 @@ const TILE_NAMES = {
   8: 'Pit',
 };
 
-// Standard D&D skill list
+// Standard 5e skill list
 const SKILLS = {
   acrobatics:      { ability: 'dex', name: 'Acrobatics' },
   animal_handling: { ability: 'wis', name: 'Animal Handling' },

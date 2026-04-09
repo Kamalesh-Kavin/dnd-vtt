@@ -1,4 +1,4 @@
-// Combat.js — D&D 5e combat engine
+// Combat.js — 5e SRD combat engine
 // Handles initiative, turns, attacks, damage, death saves, and conditions
 
 const DiceRoller = require('./DiceRoller');

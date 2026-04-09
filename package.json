@@ -1,7 +1,7 @@
 {
-  "name": "dnd-vtt",
+  "name": "dungeon-crawl-vtt",
   "version": "1.0.0",
-  "description": "Dungeons & Dragons Virtual Tabletop — play D&D online with friends",
+  "description": "Dungeon Crawl VTT — a browser-based tabletop RPG with AI dungeon master",
   "main": "server/index.js",
   "scripts": {
     "start": "node server/index.js",

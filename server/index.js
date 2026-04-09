@@ -1,4 +1,4 @@
-// server/index.js — Express 5 + Socket.IO server for D&D VTT
+// server/index.js — Express 5 + Socket.IO server for Dungeon Crawl VTT
 // Single-lobby model: one link = one game, all players join the same session
 
 const express = require('express');
@@ -404,6 +404,6 @@ io.on('connection', (socket) => {
 // ==========================================
 const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => {
-  console.log(`D&D VTT server running on port ${PORT}`);
+  console.log(`Dungeon Crawl VTT server running on port ${PORT}`);
   console.log(`Open http://localhost:${PORT} to play`);
 });

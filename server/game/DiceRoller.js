@@ -1,4 +1,4 @@
-// DiceRoller.js — D&D dice rolling utility
+// DiceRoller.js — Dice rolling utility
 // Supports: d4, d6, d8, d10, d12, d20, d100
 // Notation: "2d6+3", "1d20", "4d6kh3" (keep highest 3), "1d20adv", "1d20dis"
 

@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: dnd-vtt
+    name: dungeon-crawl-vtt
     runtime: node
     plan: free
     buildCommand: npm install

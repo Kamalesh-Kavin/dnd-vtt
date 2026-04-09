@@ -1,4 +1,4 @@
-// client.js — D&D VTT Frontend
+// client.js — Dungeon Crawl VTT Frontend
 // Canvas renderer, socket handlers, UI logic
 
 /* global io */
@@ -8,7 +8,7 @@
 // ==========================================
 const state = {
   socket: null,
-  sessionId: localStorage.getItem('dnd_session') || generateSessionId(),
+  sessionId: localStorage.getItem('dcvtt_session') || generateSessionId(),
   mySocketId: null,
   playerName: null,
   phase: 'lobby',
@@ -51,7 +51,7 @@ const state = {
 
 function generateSessionId() {
   const id = 'sess_' + Math.random().toString(36).substr(2, 12);
-  localStorage.setItem('dnd_session', id);
+  localStorage.setItem('dcvtt_session', id);
   return id;
 }
 
@@ -156,7 +156,7 @@ function setupSocketHandlers() {
     render();
 
     // Show tutorial on first game start
-    if (!localStorage.getItem('dnd_tutorial_seen')) {
+    if (!localStorage.getItem('dcvtt_tutorial_seen')) {
       setTimeout(() => showTutorial(), 600);
     } else {
       // If tutorial already seen, show a movement hint
@@ -1476,7 +1476,7 @@ function showTutorial() {
 
 function hideTutorial() {
   document.getElementById('tutorial-overlay').classList.add('hidden');
-  localStorage.setItem('dnd_tutorial_seen', '1');
+  localStorage.setItem('dcvtt_tutorial_seen', '1');
 }
 
 function navigateTutorial(index) {
@@ -1523,7 +1523,7 @@ let hintTimer = null;
 
 function showHint(key, text, duration) {
   // Each hint only shows once per browser (localStorage)
-  const storageKey = 'dnd_hint_' + key;
+  const storageKey = 'dcvtt_hint_' + key;
   if (localStorage.getItem(storageKey)) return;
   localStorage.setItem(storageKey, '1');
 
