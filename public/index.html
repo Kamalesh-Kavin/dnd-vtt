@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>D&D Virtual Tabletop</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐉</text></svg>">
+</head>
+<body>
+
+  <!-- ===================== -->
+  <!-- LOBBY SCREEN          -->
+  <!-- ===================== -->
+  <div id="lobby-screen" class="screen active">
+    <div class="lobby-container">
+      <h1 class="title">D&D Virtual Tabletop</h1>
+      <p class="subtitle">Gather your party and venture forth!</p>
+
+      <!-- Join Form -->
+      <div id="join-section">
+        <input type="text" id="player-name" placeholder="Enter your name, adventurer..." maxlength="20" autocomplete="off">
+        <button id="join-btn" class="btn btn-primary">Join Game</button>
+      </div>
+
+      <!-- Settings (visible after joining) -->
+      <div id="settings-section" class="hidden">
+        <h2>Game Settings</h2>
+        <div class="settings-grid">
+          <div class="setting-group">
+            <label>Dungeon Master</label>
+            <div class="btn-group">
+              <button class="btn btn-sm dm-mode-btn active" data-mode="ai">AI DM</button>
+              <button class="btn btn-sm dm-mode-btn" data-mode="human">Human DM</button>
+            </div>
+            <p class="hint" id="dm-hint">AI generates dungeons and narrates the adventure</p>
+          </div>
+          <div class="setting-group">
+            <label>Game Style</label>
+            <div class="btn-group">
+              <button class="btn btn-sm game-mode-btn active" data-mode="simplified">Casual</button>
+              <button class="btn btn-sm game-mode-btn" data-mode="faithful">D&D 5e</button>
+              <button class="btn btn-sm game-mode-btn" data-mode="narrative">Story</button>
+            </div>
+          </div>
+          <div class="setting-group">
+            <label>Difficulty</label>
+            <select id="difficulty-select">
+              <option value="1">Easy</option>
+              <option value="2" selected>Medium</option>
+              <option value="3">Hard</option>
+              <option value="4">Very Hard</option>
+              <option value="5">Deadly</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Player List -->
+        <div id="player-list-section">
+          <h3>Adventurers <span id="player-count">(0)</span></h3>
+          <div id="player-list"></div>
+        </div>
+
+        <!-- Character Creation -->
+        <div id="char-create-section" class="hidden">
+          <h2>Create Your Character</h2>
+
+          <div class="char-form">
+            <div class="form-row">
+              <label>Character Name</label>
+              <input type="text" id="char-name" placeholder="Thorin, Elara, Grimjaw..." maxlength="20" autocomplete="off">
+            </div>
+
+            <div class="form-row">
+              <label>Race</label>
+              <div id="race-picker" class="picker-grid"></div>
+              <p id="race-desc" class="desc-text"></p>
+            </div>
+
+            <div class="form-row">
+              <label>Class</label>
+              <div id="class-picker" class="picker-grid"></div>
+              <p id="class-desc" class="desc-text"></p>
+            </div>
+
+            <div class="form-row">
+              <label>Ability Scores <button id="roll-stats-btn" class="btn btn-sm">Roll Stats (4d6 drop lowest)</button></label>
+              <div id="ability-scores" class="ability-grid"></div>
+            </div>
+
+            <button id="create-char-btn" class="btn btn-primary" disabled>Create Character</button>
+          </div>
+        </div>
+
+        <!-- Start Game -->
+        <button id="start-game-btn" class="btn btn-accent hidden">Start Adventure!</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== -->
+  <!-- GAME SCREEN           -->
+  <!-- ===================== -->
+  <div id="game-screen" class="screen">
+    <div class="game-layout">
+
+      <!-- Left: Map Canvas -->
+      <div class="map-panel">
+        <canvas id="game-canvas"></canvas>
+        <div id="map-controls">
+          <span id="dungeon-level">Level 1</span>
+          <span id="phase-indicator">Exploring</span>
+          <button id="zoom-in-btn" class="btn btn-sm">+</button>
+          <button id="zoom-out-btn" class="btn btn-sm">-</button>
+        </div>
+      </div>
+
+      <!-- Right: Sidebar -->
+      <div class="sidebar">
+
+        <!-- Character Info -->
+        <div class="sidebar-panel" id="char-panel">
+          <h3 id="char-info-name">Character</h3>
+          <div class="char-stats">
+            <div class="stat-row">
+              <span class="stat-label">HP</span>
+              <div class="hp-bar-container">
+                <div id="hp-bar" class="hp-bar"></div>
+                <span id="hp-text" class="hp-text">0/0</span>
+              </div>
+            </div>
+            <div class="stat-row">
+              <span class="stat-label">AC</span>
+              <span id="char-ac" class="stat-value">10</span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-label">Level</span>
+              <span id="char-level" class="stat-value">1</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Combat Panel (visible during combat) -->
+        <div class="sidebar-panel hidden" id="combat-panel">
+          <h3>Combat <span id="combat-round">Round 1</span></h3>
+          <div id="turn-order"></div>
+          <div id="combat-actions" class="hidden">
+            <h4>Your Turn!</h4>
+            <div id="action-buttons">
+              <button class="btn btn-sm btn-attack" id="attack-btn">Attack</button>
+              <button class="btn btn-sm btn-spell" id="spell-btn">Cast Spell</button>
+              <button class="btn btn-sm" id="end-turn-btn">End Turn</button>
+            </div>
+            <!-- Target selection -->
+            <div id="target-select" class="hidden">
+              <label>Target:</label>
+              <select id="target-dropdown"></select>
+            </div>
+            <!-- Weapon selection -->
+            <div id="weapon-select" class="hidden">
+              <label>Weapon:</label>
+              <select id="weapon-dropdown"></select>
+              <button id="confirm-attack-btn" class="btn btn-sm btn-primary">Attack!</button>
+            </div>
+            <!-- Spell selection -->
+            <div id="spell-select" class="hidden">
+              <label>Spell:</label>
+              <select id="spell-dropdown"></select>
+              <button id="confirm-spell-btn" class="btn btn-sm btn-primary">Cast!</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Dice Roller -->
+        <div class="sidebar-panel" id="dice-panel">
+          <h3>Dice</h3>
+          <div class="dice-buttons">
+            <button class="btn btn-sm dice-btn" data-dice="1d4">d4</button>
+            <button class="btn btn-sm dice-btn" data-dice="1d6">d6</button>
+            <button class="btn btn-sm dice-btn" data-dice="1d8">d8</button>
+            <button class="btn btn-sm dice-btn" data-dice="1d10">d10</button>
+            <button class="btn btn-sm dice-btn" data-dice="1d12">d12</button>
+            <button class="btn btn-sm dice-btn" data-dice="1d20">d20</button>
+          </div>
+          <div id="dice-result" class="dice-result"></div>
+        </div>
+
+        <!-- Chat / Narrative Log -->
+        <div class="sidebar-panel flex-grow" id="chat-panel">
+          <h3>Adventure Log</h3>
+          <div id="chat-log"></div>
+          <div class="chat-input-row">
+            <input type="text" id="chat-input" placeholder="Type a message..." autocomplete="off">
+            <button id="chat-send-btn" class="btn btn-sm">Send</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== -->
+  <!-- GAME OVER SCREEN      -->
+  <!-- ===================== -->
+  <div id="gameover-screen" class="screen">
+    <div class="gameover-container">
+      <h1 id="gameover-title">Game Over</h1>
+      <p id="gameover-message"></p>
+      <button id="play-again-btn" class="btn btn-primary">Play Again</button>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/client.js"></script>
+</body>
+</html>
